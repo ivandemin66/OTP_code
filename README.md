@@ -6,6 +6,17 @@
 
 ---
 
+## Требования к окружению
+
+- JDK 11 или выше
+- PostgreSQL 12 или выше
+- Maven (для сборки проекта)
+- Доступ к интернету (для Telegram API)
+- Опционально: SMPPSim для тестирования SMS 
+- Опционально: настроенный SMTP сервер для Email
+
+---
+
 ## Как пользоваться сервисом
 
 1. **Склонируйте репозиторий и перейдите в папку проекта:**
@@ -13,24 +24,63 @@
    git clone <repo-url>
    cd OTP_code
    ```
-2. **Настройте параметры подключения:**
-   - В `src/main/resources/application.properties` укажите параметры PostgreSQL.
-   - В `sms.properties` — параметры SMPP.
-   - В `EmailNotificationService.java` — email и пароль для отправки писем.
-   - В `TelegramNotificationService.java` — токен Telegram-бота.
-3. **Создайте таблицы в PostgreSQL:**
-   - Выполните скрипт `src/main/resources/create_tables.sql` в вашей базе данных.
-4. **Соберите проект:**
+
+2. **Настройте базу данных PostgreSQL:**
+   - Убедитесь, что PostgreSQL запущен и доступен
+   - Создайте базу данных (можно использовать существующую)
+   - В `src/main/resources/application.properties` укажите параметры подключения:
+     ```properties
+     db.url=jdbc:postgresql://localhost:5432/postgres
+     db.user=postgres
+     db.password=your_password
+     ```
+   - Если PostgreSQL работает на нестандартном порту, укажите нужный порт в URL
+
+3. **Инициализируйте базу данных:**
+   - Выполните SQL-скрипт `init_database.sql` в вашей базе данных:
+     ```sh
+     psql -U postgres -d postgres -f init_database.sql
+     ```
+   - Или используйте pgAdmin/другой клиент для выполнения скрипта
+
+4. **Настройте параметры каналов отправки:**
+   - **SMS**: В `sms.properties` укажите параметры SMPP-сервера (или оставьте тестовый режим)
+   - **Email**: В `src/main/java/notifications/EmailNotificationService.java` укажите email и пароль
+   - **Telegram**: В `src/main/java/notifications/TelegramNotificationService.java` укажите токен бота
+
+5. **Соберите проект:**
    ```sh
-   mvn clean install
+   mvn clean package
    ```
-5. **Запустите эмулятор SMPP (SMPPSim), если тестируете SMS:**
-   - Скачайте [SMPPSim](https://github.com/delhee/SMPPSim/releases/tag/3.0.0), распакуйте и запустите `startsmppsim.bat`.
+
 6. **Запустите приложение:**
-   ```sh
-   mvn exec:java -Dexec.mainClass=API.HttpServerApp
-   ```
-   или через IDE (запуск класса `API.HttpServerApp`).
+   - **Используя Maven:**
+     ```sh
+     mvn exec:java -Dexec.mainClass=API.HttpServerApp
+     ```
+   - **Или через IDE**: запустите класс `API.HttpServerApp`
+   - **Или напрямую через Java:**
+     ```sh
+     java -cp target/classes API.HttpServerApp
+     ```
+
+7. **Тестирование базовой функциональности**
+   - Можно запустить отдельно класс `Main.java`, который создаст тестового пользователя и отправит OTP-коды через все доступные каналы
+
+---
+
+## Тестовый режим и упрощенная настройка
+
+По умолчанию в проекте активирован тестовый режим для сервисов рассылки:
+
+- **SMS**: Отправка SMS эмулируется, реальных сообщений не отправляется (настройка в `SmsNotificationService.java`)
+- **Telegram**: Для реальной отправки требуется указать действующий токен бота и chatId получателя
+- **Email**: В тестовом режиме, для реальной отправки нужно указать SMTP-параметры и учетные данные
+- **Файл**: Работает всегда, сохраняет код в файл `otp_code_НОМЕР.txt` в корне проекта
+
+Для перехода в боевой режим нужно:
+1. Установить `TEST_MODE = false` в соответствующих сервисах
+2. Указать реальные параметры подключения к службам отправки уведомлений
 
 ---
 
@@ -104,6 +154,7 @@ curl -X DELETE http://localhost:8080/admin/delete -H 'Authorization: Bearer <tok
 - `src/main/resources` — конфиги, SQL-скрипты
 - `sms.properties` — параметры SMPP
 - `pom.xml` — зависимости Maven
+- `init_database.sql` — скрипт инициализации базы данных
 
 ---
 
@@ -116,6 +167,21 @@ curl -X DELETE http://localhost:8080/admin/delete -H 'Authorization: Bearer <tok
 - [PostgreSQL JDBC](https://jdbc.postgresql.org/) — работа с БД
 
 Все зависимости подключаются автоматически через Maven (`pom.xml`).
+
+---
+
+## Возможные проблемы и их решения
+
+### Проблемы с базой данных:
+- **Ошибка «отношение "otp_config" не существует»** - выполните скрипт init_database.sql для создания таблиц
+- **Ошибка подключения к PostgreSQL** - проверьте, запущен ли сервер и правильно ли указаны параметры в application.properties
+- **Ошибка «нарушает ограничение внешнего ключа»** - убедитесь, что в таблице users есть запись перед созданием OTP-кода
+
+### Проблемы с отправкой уведомлений:
+- **SLF4J: Failed to load class** - некритичное предупреждение, можно игнорировать или добавить зависимость slf4j-simple в pom.xml
+- **Ошибка отправки SMS: Connection refused** - включите тестовый режим или настройте подключение к SMPP-серверу
+- **Telegram API: 401 Unauthorized** - указан неверный токен бота в TelegramNotificationService.java
+- **Email: Connection error** - проверьте настройки SMTP-сервера и учетные данные
 
 ---
 
@@ -134,7 +200,7 @@ curl -X DELETE http://localhost:8080/admin/delete -H 'Authorization: Bearer <tok
 - Код структурирован, снабжён комментариями.
 - В репозитории есть README.md с актуальными инструкциями.
 - Все внешние библиотеки подключаются через Maven.
-- Для тестирования SMS требуется запущенный SMPPSim.
+- Для тестирования SMS требуется запущенный SMPPSim или включенный тестовый режим.
 - Для Telegram требуется токен и chatId.
 - Для email — рабочий SMTP и email/пароль приложения.
 

@@ -23,6 +23,7 @@ public class SmsNotificationService {
     private final String sourceAddress;
     // Логгер для записи информации о работе сервиса
     private static final Logger logger = Logger.getLogger(SmsNotificationService.class.getName());
+    private static final boolean TEST_MODE = true; // Тестовый режим (без реального подключения)
 
     public SmsNotificationService() {
         Properties config = loadConfig();
@@ -47,6 +48,12 @@ public class SmsNotificationService {
 
     // Отправка SMS через SMPP
     public void sendCode(String destination, String code) {
+        if (TEST_MODE) {
+            // В тестовом режиме просто логируем сообщение без реальной отправки
+            logger.info("Тестовый режим: SMS с кодом " + code + " будет отправлен на номер " + destination);
+            return;
+        }
+        
         SMPPSession session = null;
         try {
             // 1. Установка соединения и привязка
