@@ -32,7 +32,7 @@
      ```properties
      db.url=jdbc:postgresql://localhost:5432/postgres
      db.user=postgres
-     db.password=your_password
+     db.password=ваш_пароль
      ```
    - Если PostgreSQL работает на нестандартном порту, укажите нужный порт в URL
 
